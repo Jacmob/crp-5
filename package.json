@@ -1,0 +1,15 @@
+{
+  "name": "crp5-emulator",
+  "version": "1.0.0",
+  "description": "Open-source emulator of the CRP-5 style navigation computer used in ATPL training. Independent project, not affiliated with any manufacturer.",
+  "private": true,
+  "type": "module",
+  "license": "MIT",
+  "scripts": {
+    "start": "python3 scripts/dev-server.py 8091",
+    "test": "node --test tests/*.test.js"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

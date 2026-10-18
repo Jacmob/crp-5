@@ -1,0 +1,263 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>CRP-5 Emulator</title>
+  <meta name="description" content="Free, open-source emulator of the CRP-5 style navigation computer used in ATPL training and exams. Independent project, not affiliated with any manufacturer.">
+  <meta name="theme-color" content="#1c232c">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="css/style.css">
+  <script type="module" src="js/main.js"></script>
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <h1>CRP-5 Emulator</h1>
+      <span class="badge" title="Independent project, not affiliated with any manufacturer">Open source</span>
+    </div>
+    <div class="segmented" role="tablist" aria-label="Side of the computer">
+      <button role="tab" data-side="calc" aria-selected="true">Calculator side</button>
+      <button role="tab" data-side="wind" aria-selected="false">Wind side</button>
+    </div>
+  </header>
+
+  <main class="layout">
+    <section class="stage-wrap" aria-label="Flight computer">
+      <div class="toolbar">
+        <div class="tool-group wind-only" role="group" aria-label="Pencil tools">
+          <button data-tool="move" aria-pressed="true" title="Move parts (M)">✋ Move</button>
+          <button data-tool="pencil" aria-pressed="false" title="Pencil: click for a cross, drag to draw freehand (P)">✏️ Pencil</button>
+          <button data-tool="line" aria-pressed="false" title="Line: drag a straight line; hold Shift to follow a drift line (L)">📏 Line</button>
+          <button data-tool="eraser" aria-pressed="false" title="Rubber: click or drag over marks (E)">⌫ Rubber</button>
+          <button id="undo-mark" title="Rub out the last mark (⌘/Ctrl+Z)">Undo</button>
+          <button id="clear-marks" title="Rub out all pencil marks">Clear</button>
+        </div>
+        <div class="tool-group wind-only" role="group" aria-label="Slide">
+          <span class="tool-label">Slide</span>
+          <button data-face="L" aria-pressed="true" title="Low speed side up on the wind face">L</button>
+          <button data-face="H" aria-pressed="false" title="High speed side up on the wind face">H</button>
+        </div>
+        <div class="tool-group" role="group" aria-label="View">
+          <button id="zoom-out" title="Zoom out (−)" aria-label="Zoom out">−</button>
+          <button id="zoom-fit" title="Reset view (0)">Fit</button>
+          <button id="zoom-in" title="Zoom in (+)" aria-label="Zoom in">+</button>
+          <button id="rotate-left" title="Turn the computer anticlockwise" aria-label="Turn anticlockwise">⟲</button>
+          <button id="rotate-right" title="Turn the computer clockwise (R)" aria-label="Turn clockwise">⟳</button>
+        </div>
+      </div>
+      <svg id="stage" class="instrument tool-move" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Interactive CRP-5 style flight computer">
+        <defs></defs>
+        <g id="world" aria-hidden="true">
+          <g id="calc-root"></g>
+          <g id="wind-root" style="display:none"></g>
+        </g>
+      </svg>
+      <p class="stage-hint" id="stage-hint"></p>
+    </section>
+
+    <aside class="panel">
+      <section class="card calc-only">
+        <h2>Set precisely</h2>
+        <form class="row form-grid" id="calc-align-form">
+          <label for="calc-inner">Set inner</label>
+          <input id="calc-inner" type="number" step="any" min="0" value="60" inputmode="decimal">
+          <span></span>
+          <label for="calc-outer">against outer</label>
+          <input id="calc-outer" type="number" step="any" min="0" value="150" inputmode="decimal">
+          <button type="submit">Set</button>
+        </form>
+        <form class="row form-grid" id="calc-cursor-form">
+          <label for="calc-cursor-value">Cursor to</label>
+          <input id="calc-cursor-value" type="number" step="any" min="0" value="45" inputmode="decimal">
+          <span></span>
+          <label for="calc-cursor-scale">on scale</label>
+          <select id="calc-cursor-scale">
+            <option value="outer">outer</option>
+            <option value="inner">inner</option>
+          </select>
+          <button type="submit">Set</button>
+        </form>
+        <div class="nudges">
+          <span>Disc</span>
+          <button data-nudge="disc" data-step="-1" title="Turn the disc 1° anticlockwise">⟲1°</button>
+          <button data-nudge="disc" data-step="-0.1" title="Turn the disc 0.1° anticlockwise">⟲·1</button>
+          <button data-nudge="disc" data-step="0.1" title="Turn the disc 0.1° clockwise">·1⟳</button>
+          <button data-nudge="disc" data-step="1" title="Turn the disc 1° clockwise">1°⟳</button>
+        </div>
+        <div class="nudges">
+          <span>Cursor</span>
+          <button data-nudge="cursor" data-step="-1">⟲1°</button>
+          <button data-nudge="cursor" data-step="-0.1">⟲·1</button>
+          <button data-nudge="cursor" data-step="0.1">·1⟳</button>
+          <button data-nudge="cursor" data-step="1">1°⟳</button>
+        </div>
+        <button id="calc-reset" class="wide">Reset disc (10 against 10)</button>
+      </section>
+
+      <section class="card wind-only">
+        <h2>Set precisely</h2>
+        <form class="row form-grid" id="wind-heading-form">
+          <label for="wind-heading">Heading at index</label>
+          <input id="wind-heading" type="number" step="any" min="0" max="360" value="0" inputmode="decimal">
+          <button type="submit">Set</button>
+        </form>
+        <form class="row form-grid" id="wind-speed-form">
+          <label for="wind-speed">Speed under dot</label>
+          <input id="wind-speed" type="number" step="any" min="0" value="150" inputmode="decimal">
+          <button type="submit">Set</button>
+        </form>
+        <form class="row form-grid" id="wind-mark-form">
+          <label for="wind-mark">Cross, kt below dot</label>
+          <input id="wind-mark" type="number" step="any" min="0" value="30" inputmode="decimal">
+          <button type="submit">Mark</button>
+        </form>
+        <form class="row form-grid line-form" id="wind-line-form">
+          <label for="wind-line">Line along drift</label>
+          <span class="drift-input">
+            <input id="wind-line" type="number" step="any" min="0" max="60" value="5" inputmode="decimal" aria-label="Drift in degrees">
+            <select id="wind-line-side" aria-label="Port or starboard">
+              <option value="S">° S</option>
+              <option value="P">° P</option>
+            </select>
+          </span>
+          <button type="submit">Draw</button>
+        </form>
+        <div class="nudges">
+          <span>Disc</span>
+          <button data-nudge="heading" data-step="10">⟲10°</button>
+          <button data-nudge="heading" data-step="1">⟲1°</button>
+          <button data-nudge="heading" data-step="-1">1°⟳</button>
+          <button data-nudge="heading" data-step="-10">10°⟳</button>
+        </div>
+        <div class="nudges">
+          <span>Slide</span>
+          <button data-nudge="slide" data-step="10" title="Slide down: 10 kt more under the dot">+10</button>
+          <button data-nudge="slide" data-step="1" title="Slide down: 1 kt more under the dot">+1</button>
+          <button data-nudge="slide" data-step="-1" title="Slide up: 1 kt less under the dot">−1</button>
+          <button data-nudge="slide" data-step="-10" title="Slide up: 10 kt less under the dot">−10</button>
+        </div>
+        <button id="grid-top" class="wide">Put square grid top line under dot (L)</button>
+      </section>
+
+      <section class="card readouts">
+        <div class="card-head">
+          <h2>Readouts</h2>
+          <label class="switch"><input type="checkbox" id="show-readouts" checked> Show</label>
+        </div>
+        <p class="muted small" id="readouts-hidden" hidden>Hidden, so you can practise reading the scales yourself.</p>
+        <dl id="readout-list"></dl>
+      </section>
+
+      <details class="card guide" open>
+        <summary>Using the emulator</summary>
+        <ul>
+          <li><b>Flip</b> between sides with the tabs above (or <kbd>F</kbd>).</li>
+          <li><b>Calculator side:</b> drag the inner disc to turn it. Drag the red hairline, or anywhere on the outer ring, to move the cursor.</li>
+          <li><b>Wind side:</b> drag the compass ring to turn the disc. Drag inside the window (or the slide where it shows) to move the slide.</li>
+          <li>Hold <kbd>Shift</kbd> while dragging for fine movement.</li>
+          <li>Scroll or pinch to zoom, drag empty space to pan, and use ⟲ ⟳ to turn the whole computer to read upside-down numbers.</li>
+          <li><b>Pencil:</b> click in the window for a cross, or drag to draw freehand. <b>Line</b> draws a straight line; hold <kbd>Shift</kbd> to lay it along the drift line where you start. <b>Rubber</b> removes marks, and <b>Undo</b> (<kbd>⌘</kbd>/<kbd>Ctrl</kbd>+<kbd>Z</kbd>) takes back the last one.</li>
+          <li>The <b>Set precisely</b> boxes make the same physical moves with exact numbers. Hide <b>Readouts</b> when you practise.</li>
+        </ul>
+      </details>
+
+      <details class="card guide calc-only">
+        <summary>Calculator side: how to</summary>
+        <h3>Ratios, multiplying and dividing</h3>
+        <p>The outer number divided by the inner number is the same all the way round. Set two numbers against each other and read off the rest. You place the decimal point, so do a rough check first.</p>
+        <p class="eg">18 × 3.5: set inner 10 against outer 18. Opposite inner 35, read outer 63, so the answer is 63.</p>
+
+        <h3>Speed, distance and time</h3>
+        <p>Inner = minutes, outer = distance (or fuel). The ▲ at 60 on the inner scale marks one hour.</p>
+        <p class="eg">GS 210 kt, 87 NM: set ▲60 against 21 (210). Opposite outer 87, read inner 24.9, so it takes 24.9 min.</p>
+        <p>Fuel works the same way: put ▲60 against the fuel flow per hour, then read fuel used on the outer scale opposite the minutes. The <b>HOURS</b> ring converts minutes on the inner scale to h:mm.</p>
+
+        <h3>Unit conversions (red datums)</h3>
+        <p>Set the quantity on the inner scale against its unit's datum, then read it in other units on the inner scale opposite their datums. Volume to mass uses the <b>Sp.G</b> scales: kg against the outer-scale number (0.79 → 79), and lb on the separate red scale.</p>
+        <p class="eg">1,250 L at SG 0.79: inner 125 against KM·M·LTR. Opposite IMP GAL read 275 imp gal, opposite US GAL 330 US gal, opposite outer 79 about 988 kg, and opposite lb Sp.G 0.79 about 2,180 lb.</p>
+
+        <h3>TAS from CAS</h3>
+        <p>In the <b>AIR SPEED</b> window, set the pressure altitude (in the window) against the COAT (on its edge). Read TAS on the outer scale opposite CAS on the inner (red RAS/CAS → TAS reminder).</p>
+        <p class="eg">12,000 ft, −5 °C, CAS 160 kt gives TAS 194 kt.</p>
+
+        <h3>Above 300 kt TAS: Comp Corr</h3>
+        <p>Work out TAS as above. Then turn the disc <b>anticlockwise</b> by TAS/100 − 3 divisions of the <b>COMP CORR</b> scale (its numbers increase that way), and read the corrected TAS opposite the CAS again.</p>
+        <p class="eg">35,000 ft, −47 °C, CAS 280 kt: TAS about 511 kt, and the arrow reads about 38.2. Move 2.1 divisions to about 40.3, giving TAS about 490 kt.</p>
+
+        <h3>TAS from Mach number</h3>
+        <p>In the AIR SPEED window, set the <b>MACH No. INDEX</b> against the COAT. Read TAS on the outer scale opposite Mach on the inner. Opposite 10 (M 1.0) is the local speed of sound. Don't apply Comp Corr here.</p>
+        <p class="eg">−50 °C, M 0.78 gives TAS 454 kt (local speed of sound 582 kt).</p>
+
+        <h3>Density altitude</h3>
+        <p>Set the elevation (as pressure altitude) against the air temperature in the AIR SPEED window, then read under the <b>DENSITY ALTITUDE</b> arrow.</p>
+        <p class="eg">3,000 ft at +25 °C gives about 4,800 ft.</p>
+
+        <h3>True altitude</h3>
+        <p>In the <b>ALTITUDE</b> window, set the pressure altitude (on the edge) against the COAT (in the window). Read true altitude on the outer scale opposite indicated altitude on the inner.</p>
+        <p class="eg">10,000 ft, −15 °C gives about 9,620 ft true.</p>
+
+        <h3>Temperature rise and °C/°F</h3>
+        <p>The <b>TEMP RISE</b> arc on the disc turns TAS (outer side) into kinetic heating in °C (inner side). Subtract it from the indicated temperature to get COAT, then recompute TAS. The arc along the bottom converts between °C and °F.</p>
+        <p class="eg">TAS 300 kt gives a rise of about 9.5 °C.</p>
+      </details>
+
+      <details class="card guide wind-only">
+        <summary>Wind side: how to</summary>
+        <h3>Setting a wind</h3>
+        <p>Put the wind direction under <b>TRUE HEADING</b>. Pencil a cross on the centre line <b>below</b> the dot, the wind speed's worth of slide units away; count down the speed arcs. The cross is the wind vector blowing out of the dot. Use the L or H side to suit TAS ± wind. Marks don't rescale if you turn the slide over, so redraw them.</p>
+
+        <h3>Track and GS (from Hdg, TAS, W/V)</h3>
+        <p>Set the wind. Put TAS under the dot and heading under the index. Under the cross, read the drift (left = port, right = starboard) and the GS. Track is on the disc opposite that drift on the fixed scale.</p>
+        <p class="eg">Hdg 040, TAS 150, W/V 310/30 gives drift 11° S, Trk 051, GS 153 kt.</p>
+
+        <h3>Wind velocity (from Hdg, TAS, Trk, GS)</h3>
+        <p>Put TAS under the dot and heading under the index. Work out the drift from track minus heading, and mark a cross where that drift line meets the GS arc. Turn the disc until the cross is on the centre line below the dot. Read the wind direction under the index; the wind speed is the distance from the dot.</p>
+        <p class="eg">Hdg 200, TAS 210, Trk 192, GS 230 gives W/V 319/37.</p>
+
+        <h3>Heading and GS (from TAS, W/V, Trk)</h3>
+        <p>Set the wind and put TAS under the dot. Put the track under the index and read the drift under the cross. Set the track against that drift on the fixed scale; the heading is now under the index. Recheck the drift under the cross and adjust until they agree. Read the GS under the cross.</p>
+        <p class="eg">TAS 140, W/V 250/25, Trk 180 gives Hdg 190 (drift 10° P), GS about 130 kt.</p>
+
+        <h3>Runway components</h3>
+        <p>On the L side, put the top line of the square grid under the dot. Set the wind direction under the index and mark the wind speed straight down. Then put the runway direction under the index. The headwind is how far the cross is below the top line, and the crosswind is how far it is from the centre line.</p>
+        <p class="eg">RWY 27 with 230/20 gives about 15 kt headwind and 13 kt crosswind from the left.</p>
+
+        <h3>Wind from drift on two headings</h3>
+        <p>Put TAS under the dot and the first heading under the index. Draw a line down that leg's drift line, either with the <b>Line</b> tool (hold <kbd>Shift</kbd>) or exactly with <b>Line along drift</b>. Turn the disc to the second heading and draw down its drift line. Where the lines cross is the wind cross: turn it to below the dot and read the W/V (the Readouts also show it). This works best when the headings are 70–90° apart.</p>
+        <p class="eg">TAS 220; heading 195° with 6° S drift, then 278° with 4° P, gives W/V 066/33.</p>
+
+        <h3>Variation</h3>
+        <p>With heading (T) under the index, read heading (M) on the disc opposite the variation: VAR EAST on the left, VAR WEST on the right.</p>
+        <p class="eg">125°T with 4°W variation gives 129°M.</p>
+      </details>
+
+      <details class="card guide">
+        <summary>Keyboard</summary>
+        <table class="keys">
+          <tr><td><kbd>F</kbd></td><td>Flip the computer</td></tr>
+          <tr><td><kbd>←</kbd> <kbd>→</kbd></td><td>Turn the disc (<kbd>Shift</kbd> ×10)</td></tr>
+          <tr><td><kbd>[</kbd> <kbd>]</kbd></td><td>Move the cursor (calculator side)</td></tr>
+          <tr><td><kbd>↑</kbd> <kbd>↓</kbd></td><td>Move the slide (wind side)</td></tr>
+          <tr><td><kbd>M</kbd> <kbd>P</kbd> <kbd>L</kbd> <kbd>E</kbd></td><td>Move, pencil, line, rubber</td></tr>
+          <tr><td><kbd>⌘</kbd>/<kbd>Ctrl</kbd>+<kbd>Z</kbd></td><td>Undo the last pencil mark</td></tr>
+          <tr><td><kbd>+</kbd> <kbd>−</kbd> <kbd>0</kbd></td><td>Zoom in, out, reset view</td></tr>
+          <tr><td><kbd>R</kbd></td><td>Turn the whole computer 90°</td></tr>
+        </table>
+      </details>
+
+      <details class="card guide">
+        <summary>About and disclaimer</summary>
+        <p>This is an open-source educational emulator of the circular navigation computer that ATPL training and examination material refers to as the “CRP-5”. It is <b>an independent project, not affiliated with or endorsed by the maker of the CRP-5 or any other company</b>. The name is used only to say what kind of computer this emulates; any trademarks belong to their owners. The artwork, code and text are original.</p>
+        <p>The scales follow the physics (ISA, compressible flow) and the published behaviour of the real instrument. Some details differ from it, so always follow your training organisation's material. For study only, not for real-world navigation.</p>
+        <p>Free software under the MIT licence. <a href="https://github.com/" id="source-link">Source code</a>.</p>
+      </details>
+    </aside>
+  </main>
+
+  <footer class="footer">
+    Open-source emulator for ATPL study. Independent project, not affiliated with or endorsed by any manufacturer. Not for navigation. MIT licence.
+  </footer>
+</body>
+</html>

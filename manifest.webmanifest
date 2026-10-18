@@ -1,0 +1,13 @@
+{
+  "name": "CRP-5 Emulator",
+  "short_name": "CRP-5",
+  "description": "Open-source emulator of the CRP-5 style navigation computer for ATPL study. Independent project, not affiliated with any manufacturer.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#1c232c",
+  "theme_color": "#1c232c",
+  "icons": [
+    { "src": "icons/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
+  ]
+}
